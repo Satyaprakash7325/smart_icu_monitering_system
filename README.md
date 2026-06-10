@@ -2,6 +2,8 @@
 
 An advanced IoT-driven, Machine Learning-powered clinical patient monitoring workstation. This system captures real-time physiological signals from a bedside ESP32 micro-controller, evaluates multi-channel sequence stability using a custom Long Short-Term Memory (LSTM) neural network on a Flask backend, and streams vital metrics dynamically to a responsive, high-tech React interface via WebSockets.
 
+🚀 **Live Interactive Demo:** [ICU Telemetry Simulator Playground](https://satyaprakash7325.github.io/smart_icu_monitering_system/demo_playground.html) (Zero setup, runs in your browser!)
+
 ---
 
 ## 🖥️ System Overview
