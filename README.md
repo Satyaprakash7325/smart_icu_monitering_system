@@ -10,19 +10,19 @@ The workstation integrates three distinct layers to provide real-time patient an
 
 ```mermaid
 graph TD
-    subgraph Bedside Node (IoT)
+    subgraph Bedside["Bedside Node (IoT)"]
         A["Sensors: LM35, MAX30102, BMP180, ECG"] -->|1Hz Readings| B["ESP32 Controller"]
         B -->|Bedside Alarm| C["Physical Buzzer"]
     end
     
-    subgraph Analytics Node (ML Backend)
+    subgraph Analytics["Analytics Node (ML Backend)"]
         B -->|HTTP POST 60s window| D["Flask Server"]
         D -->|Feature Scaling| E["MinMaxScaler"]
         E -->|Sequence Inference| F["LSTM Anomaly Model"]
         F -->|Anomaly Probability| D
     end
 
-    subgraph Monitoring Terminal (Frontend)
+    subgraph Monitoring["Monitoring Terminal (Frontend)"]
         D -->|WebSockets event: vitals| G["React Client"]
         G -->|Dynamic Visualizations| H["ECG Canvas Waveform"]
         G -->|Trends| I["Recharts Trend Analytics"]
