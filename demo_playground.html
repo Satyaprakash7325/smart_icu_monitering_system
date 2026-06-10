@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart ICU Telemetry & Predictive Monitoring Playground</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Glow animations */
+    @keyframes pulse-red {
+      0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); border-color: rgba(239, 68, 68, 0.8); }
+      50% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.7); border-color: rgba(239, 68, 68, 1); }
+    }
+    @keyframes pulse-green {
+      0%, 100% { box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+      50% { box-shadow: 0 0 18px rgba(16, 185, 129, 0.4); }
+    }
+    @keyframes flash-warning {
+      0%, 100% { background-color: rgba(220, 38, 38, 0.2); }
+      50% { background-color: rgba(220, 38, 38, 0.55); }
+    }
+    .glow-card-normal {
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      animation: pulse-green 3s infinite ease-in-out;
+    }
+    .glow-card-alert {
+      border: 1px solid rgba(239, 68, 68, 0.6);
+      animation: pulse-red 1.2s infinite ease-in-out;
+    }
+    .banner-flash {
+      animation: flash-warning 1s infinite ease-in-out;
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #020617;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900 px-6 py-4 flex items-center justify-between shadow-lg shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="h-3 w-3 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
+      <h1 class="text-xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
+        <span>Smart ICU Bedside Telemetry</span>
+        <span class="text-xs px-2 py-0.5 bg-sky-950 text-sky-400 border border-sky-800 rounded">Simulation Playground</span>
+      </h1>
+    </div>
+    
+    <div class="flex items-center space-x-4">
+      <div id="simStatus" class="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
+        <span class="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
+        SYSTEM STANDBY
+      </div>
+      <button id="audioToggle" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-semibold flex items-center gap-2 text-slate-300 hover:text-white transition">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+        </svg>
+        <span>Muted</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Grid Layout -->
+  <main class="flex-1 flex overflow-hidden">
+    
+    <!-- Left Panel: Telemetry Input Controls -->
+    <section class="w-80 border-r border-slate-800 bg-slate-900/60 p-5 flex flex-col space-y-6 overflow-y-auto shrink-0 select-none">
+      
+      <!-- Patient Preset Quick Select -->
+      <div>
+        <h2 class="text-xs font-bold tracking-wider text-slate-400 uppercase mb-3">Patient Presets</h2>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="applyPreset('normal')" class="px-3 py-2 text-left rounded-lg bg-slate-800 border border-slate-700 hover:border-emerald-500/50 hover:bg-slate-750 text-xs font-medium transition flex flex-col gap-0.5">
+            <span class="text-emerald-400 font-semibold">🟢 Normal Patient</span>
+            <span class="text-[10px] text-slate-400">Baseline vitals</span>
+          </button>
+          <button onclick="applyPreset('fever')" class="px-3 py-2 text-left rounded-lg bg-slate-800 border border-slate-700 hover:border-amber-500/50 hover:bg-slate-750 text-xs font-medium transition flex flex-col gap-0.5">
+            <span class="text-amber-400 font-semibold">🟡 High Fever</span>
+            <span class="text-[10px] text-slate-400">Elevated Temp & HR</span>
+          </button>
+          <button onclick="applyPreset('hypoxia')" class="px-3 py-2 text-left rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500/50 hover:bg-slate-750 text-xs font-medium transition flex flex-col gap-0.5">
+            <span class="text-rose-400 font-semibold">🔴 Severe Hypoxia</span>
+            <span class="text-[10px] text-slate-400">Low Oxygen, High HR</span>
+          </button>
+          <button onclick="applyPreset('critical')" class="px-3 py-2 text-left rounded-lg bg-slate-800 border border-slate-700 hover:border-purple-500/50 hover:bg-slate-750 text-xs font-medium transition flex flex-col gap-0.5">
+            <span class="text-purple-400 font-semibold">💥 Full Anomaly</span>
+            <span class="text-[10px] text-slate-400">All metrics abnormal</span>
+          </button>
+        </div>
+      </div>
+
+      <hr class="border-slate-800">
+
+      <!-- Telemetry Inputs Sliders -->
+      <div class="flex-1 flex flex-col space-y-4">
+        <h2 class="text-xs font-bold tracking-wider text-slate-400 uppercase">Interactive Vitals Control</h2>
+        
+        <!-- Temp -->
+        <div class="flex flex-col space-y-1.5">
+          <div class="flex items-center justify-between text-xs font-medium">
+            <span class="text-slate-300">Body Temperature</span>
+            <span class="text-sky-400 font-semibold"><span id="val_temp">36.5</span>°C</span>
+          </div>
+          <input type="range" id="input_temp" min="35.0" max="41.0" step="0.1" value="36.5" class="w-full accent-sky-500 bg-slate-950 h-1 rounded-lg cursor-pointer">
+          <div class="flex justify-between text-[9px] text-slate-500">
+            <span>Hypothermia (&lt;36)</span>
+            <span>Normal</span>
+            <span>Fever (&gt;37.5)</span>
+          </div>
+        </div>
+
+        <!-- Heart Rate -->
+        <div class="flex flex-col space-y-1.5">
+          <div class="flex items-center justify-between text-xs font-medium">
+            <span class="text-slate-300">Heart Rate (HR)</span>
+            <span class="text-emerald-400 font-semibold"><span id="val_hr">72</span> BPM</span>
+          </div>
+          <input type="range" id="input_hr" min="40" max="150" step="1" value="72" class="w-full accent-emerald-500 bg-slate-950 h-1 rounded-lg cursor-pointer">
+          <div class="flex justify-between text-[9px] text-slate-500">
+            <span>Bradycardia (&lt;60)</span>
+            <span>Normal</span>
+            <span>Tachycardia (&gt;100)</span>
+          </div>
+        </div>
+
+        <!-- SpO2 -->
+        <div class="flex flex-col space-y-1.5">
+          <div class="flex items-center justify-between text-xs font-medium">
+            <span class="text-slate-300">Oxygen Saturation (SpO2)</span>
+            <span class="text-cyan-400 font-semibold"><span id="val_spo2">98</span>%</span>
+          </div>
+          <input type="range" id="input_spo2" min="70" max="100" step="1" value="98" class="w-full accent-cyan-500 bg-slate-950 h-1 rounded-lg cursor-pointer">
+          <div class="flex justify-between text-[9px] text-slate-500">
+            <span>Hypoxia (&lt;95)</span>
+            <span>Normal</span>
+          </div>
+        </div>
+
+        <!-- BP Proxy -->
+        <div class="flex flex-col space-y-1.5">
+          <div class="flex items-center justify-between text-xs font-medium">
+            <span class="text-slate-300">Blood Pressure (Proxy)</span>
+            <span class="text-violet-400 font-semibold"><span id="val_bp">1180</span></span>
+          </div>
+          <input type="range" id="input_bp" min="900" max="1600" step="10" value="1180" class="w-full accent-violet-500 bg-slate-950 h-1 rounded-lg cursor-pointer">
+          <div class="flex justify-between text-[9px] text-slate-500">
+            <span>Low</span>
+            <span>Normal</span>
+            <span>High BP (&gt;1250)</span>
+          </div>
+        </div>
+
+        <!-- ECG Amp -->
+        <div class="flex flex-col space-y-1.5">
+          <div class="flex items-center justify-between text-xs font-medium">
+            <span class="text-slate-300">ECG Signal Amplitude</span>
+            <span class="text-pink-400 font-semibold"><span id="val_ecg">0.25</span></span>
+          </div>
+          <input type="range" id="input_ecg" min="0.05" max="1.0" step="0.05" value="0.25" class="w-full accent-pink-500 bg-slate-950 h-1 rounded-lg cursor-pointer">
+        </div>
+      </div>
+
+      <hr class="border-slate-800">
+
+      <!-- Simulation Engine Stream Controller -->
+      <div class="flex flex-col space-y-3">
+        <button id="btnStream" class="w-full py-2.5 rounded-lg font-bold text-xs flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-lg shadow-emerald-900/20">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>START TELEMETRY STREAM</span>
+        </button>
+        <p class="text-[10px] text-slate-400 leading-normal text-center">
+          Starting telemetry continuously generates 1Hz data streams with minor physical variations, updating the charts in real-time.
+        </p>
+      </div>
+
+    </section>
+
+    <!-- Right Panel: Clinical Monitor Dashboard Output -->
+    <section class="flex-1 bg-slate-950 p-6 flex flex-col space-y-6 overflow-y-auto">
+      
+      <!-- Alarm Banner -->
+      <div id="alertBanner" class="hidden banner-flash border border-red-500 text-red-100 px-6 py-4 rounded-xl items-center justify-between shadow-2xl">
+        <div class="flex items-center space-x-3">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div>
+            <h3 class="font-bold text-sm tracking-wide uppercase">⚠️ CRITICAL CLINICAL ANOMALY DETECTED</h3>
+            <p class="text-xs text-red-300">LSTM classifier reports abnormal sequence stability thresholds.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="text-xs bg-red-950 border border-red-800 text-red-400 font-bold px-3 py-1 rounded-md">
+            ALARM ACTIVE
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Clinical Vitals Dashboard Grid -->
+      <div class="grid grid-cols-4 gap-4">
+        
+        <!-- Temp Card -->
+        <div id="card_temp" class="glow-card-normal bg-slate-900/50 p-4 rounded-xl flex flex-col justify-between transition duration-300">
+          <div class="flex items-center justify-between text-slate-400">
+            <span class="text-xs font-semibold uppercase tracking-wider">TEMP</span>
+            <span class="text-sky-500">°C</span>
+          </div>
+          <div class="my-3 flex items-baseline gap-1">
+            <span id="dash_temp" class="text-4xl font-bold tracking-tight text-slate-100">36.5</span>
+            <span class="text-xs text-slate-500 font-semibold">Skin</span>
+          </div>
+          <div class="text-[10px] text-slate-500 font-medium">Ref Range: 36.0 - 37.5</div>
+        </div>
+
+        <!-- HR Card -->
+        <div id="card_hr" class="glow-card-normal bg-slate-900/50 p-4 rounded-xl flex flex-col justify-between transition duration-300">
+          <div class="flex items-center justify-between text-slate-400">
+            <span class="text-xs font-semibold uppercase tracking-wider">HEART RATE</span>
+            <span class="text-emerald-500">BPM</span>
+          </div>
+          <div class="my-3 flex items-baseline gap-1">
+            <span id="dash_hr" class="text-4xl font-bold tracking-tight text-slate-100">72</span>
+            <span class="text-xs text-slate-500 font-semibold">PPG</span>
+          </div>
+          <div class="text-[10px] text-slate-500 font-medium">Ref Range: 60 - 100</div>
+        </div>
+
+        <!-- SpO2 Card -->
+        <div id="card_spo2" class="glow-card-normal bg-slate-900/50 p-4 rounded-xl flex flex-col justify-between transition duration-300">
+          <div class="flex items-center justify-between text-slate-400">
+            <span class="text-xs font-semibold uppercase tracking-wider">SpO2</span>
+            <span class="text-cyan-500">%</span>
+          </div>
+          <div class="my-3 flex items-baseline gap-1">
+            <span id="dash_spo2" class="text-4xl font-bold tracking-tight text-slate-100">98</span>
+            <span class="text-xs text-slate-500 font-semibold">Pulse Ox</span>
+          </div>
+          <div class="text-[10px] text-slate-500 font-medium">Ref Range: &gt;= 95%</div>
+        </div>
+
+        <!-- BP Card -->
+        <div id="card_bp" class="glow-card-normal bg-slate-900/50 p-4 rounded-xl flex flex-col justify-between transition duration-300">
+          <div class="flex items-center justify-between text-slate-400">
+            <span class="text-xs font-semibold uppercase tracking-wider">BP PROXY</span>
+            <span class="text-violet-500">mmHg</span>
+          </div>
+          <div class="my-3 flex items-baseline gap-1">
+            <span id="dash_bp" class="text-4xl font-bold tracking-tight text-slate-100">1180</span>
+            <span class="text-xs text-slate-500 font-semibold">Systolic</span>
+          </div>
+          <div class="text-[10px] text-slate-500 font-medium">Ref Range: 1000 - 1250</div>
+        </div>
+
+      </div>
+
+      <!-- ECG Waveform Monitor Section -->
+      <div class="border border-slate-800 bg-slate-900/40 rounded-xl p-5 flex flex-col space-y-3 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <div class="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]"></div>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300">Channel I: ECG Rolling Oscilloscope</h2>
+          </div>
+          <div class="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Sweep Speed: 25mm/s | Gain: x1.0</div>
+        </div>
+        
+        <!-- ECG Canvas -->
+        <div class="bg-black/80 rounded-lg border border-slate-950 relative overflow-hidden h-40">
+          <!-- Background Grid Lines -->
+          <div class="absolute inset-0 pointer-events-none opacity-[0.05]" style="background-image: linear-gradient(#38bdf8 1px, transparent 1px), linear-gradient(90deg, #38bdf8 1px, transparent 1px); background-size: 20px 20px;"></div>
+          <canvas id="ecgCanvas" class="w-full h-full block relative z-10"></canvas>
+        </div>
+      </div>
+
+      <!-- ML Classification & Telemetry Stream Log Panel -->
+      <div class="grid grid-cols-3 gap-6">
+        
+        <!-- LSTM Classification Gage -->
+        <div class="col-span-1 border border-slate-800 bg-slate-900/30 p-5 rounded-xl flex flex-col justify-between space-y-4">
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">LSTM Predictive Health Score</h3>
+            <p class="text-[10px] text-slate-500 leading-normal">Sequence-level classification probability model.</p>
+          </div>
+          
+          <div class="flex flex-col items-center justify-center py-2 relative">
+            <svg class="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="40" stroke="rgba(30, 41, 59, 0.5)" stroke-width="8" fill="transparent"/>
+              <circle id="gaugeProgress" cx="50" cy="50" r="40" stroke="#10b981" stroke-width="8" fill="transparent"
+                      stroke-dasharray="251.2" stroke-dashoffset="238" stroke-linecap="round"/>
+            </svg>
+            <div class="absolute flex flex-col items-center justify-center">
+              <span id="probValue" class="text-2xl font-bold">5%</span>
+              <span id="probLabel" class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Normal</span>
+            </div>
+          </div>
+
+          <div class="text-[10px] text-center text-slate-400 font-medium">
+            Alert trigger set at: <span class="text-red-400 font-bold">ALERT_THRESHOLD = 0.80</span>
+          </div>
+        </div>
+
+        <!-- Rolling Stream Data Logs -->
+        <div class="col-span-2 border border-slate-800 bg-slate-900/30 p-5 rounded-xl flex flex-col justify-between space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">IoT Telemetry Buffer Stream</h3>
+            <span class="text-[9px] bg-slate-800 border border-slate-700 px-2 py-0.5 rounded text-slate-400 font-medium tracking-wide">60-STEP STREAM BUFFER</span>
+          </div>
+
+          <!-- Log terminal list -->
+          <div id="logConsole" class="flex-1 bg-slate-950 p-3 rounded-lg border border-slate-900 text-[10px] mono text-slate-400 overflow-y-auto space-y-1 h-36">
+            <div class="text-slate-500">[SYSTEM] Terminal initialized. Waiting for telemetry data...</div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Audio Context Elements (Fallback for Audio generation) -->
+  <script>
+    // Audio Context state
+    let audioCtx = null;
+    let isMuted = true;
+    let alarmInterval = null;
+
+    // Dom elements
+    const audioToggleButton = document.getElementById('audioToggle');
+    const simStatusText = document.getElementById('simStatus');
+    const btnStream = document.getElementById('btnStream');
+    
+    // Sliders
+    const inputTemp = document.getElementById('input_temp');
+    const inputHr = document.getElementById('input_hr');
+    const inputSpo2 = document.getElementById('input_spo2');
+    const inputBp = document.getElementById('input_bp');
+    const inputEcg = document.getElementById('input_ecg');
+
+    // Values labels
+    const valTemp = document.getElementById('val_temp');
+    const valHr = document.getElementById('val_hr');
+    const valSpo2 = document.getElementById('val_spo2');
+    const valBp = document.getElementById('val_bp');
+    const valEcg = document.getElementById('val_ecg');
+
+    // Dashboard values
+    const dashTemp = document.getElementById('dash_temp');
+    const dashHr = document.getElementById('dash_hr');
+    const dashSpo2 = document.getElementById('dash_spo2');
+    const dashBp = document.getElementById('dash_bp');
+    
+    // Cards
+    const cardTemp = document.getElementById('card_temp');
+    const cardHr = document.getElementById('card_hr');
+    const cardSpo2 = document.getElementById('card_spo2');
+    const cardBp = document.getElementById('card_bp');
+    const alertBanner = document.getElementById('alertBanner');
+
+    // Anomaly gauge
+    const gaugeProgress = document.getElementById('gaugeProgress');
+    const probValue = document.getElementById('probValue');
+    const probLabel = document.getElementById('probLabel');
+    const logConsole = document.getElementById('logConsole');
+
+    // Audio alarm tone
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function toggleMute() {
+      initAudio();
+      isMuted = !isMuted;
+      if (isMuted) {
+        audioToggleButton.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+          </svg>
+          <span>Muted</span>
+        `;
+        audioToggleButton.classList.remove('bg-red-950', 'text-red-400', 'border-red-800');
+        audioToggleButton.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
+      } else {
+        audioToggleButton.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          </svg>
+          <span>Sound ON</span>
+        `;
+        audioToggleButton.classList.remove('bg-slate-800', 'text-slate-300', 'border-slate-700');
+        audioToggleButton.classList.add('bg-red-950', 'text-red-400', 'border-red-800');
+      }
+    }
+
+    audioToggleButton.addEventListener('click', toggleMute);
+
+    function playBeep(freq, duration) {
+      if (isMuted || !audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {
+        console.error("Audio generation failed: ", e);
+      }
+    }
+
+    // Patient Presets Configuration
+    const presets = {
+      normal: { temp: 36.6, hr: 72, spo2: 98, bp: 1180, ecg: 0.25 },
+      fever: { temp: 39.4, hr: 95, spo2: 96, bp: 1210, ecg: 0.35 },
+      hypoxia: { temp: 38.8, hr: 125, spo2: 88, bp: 1380, ecg: 0.85 },
+      critical: { temp: 40.5, hr: 142, spo2: 78, bp: 1510, ecg: 0.95 }
+    };
+
+    function applyPreset(name) {
+      const preset = presets[name];
+      if (preset) {
+        inputTemp.value = preset.temp;
+        inputHr.value = preset.hr;
+        inputSpo2.value = preset.spo2;
+        inputBp.value = preset.bp;
+        inputEcg.value = preset.ecg;
+        updateSliderLabels();
+        updateVitalsDashboard();
+        addLog(`[SYSTEM] Loaded preset conditions for ${name.toUpperCase()}.`);
+      }
+    }
+
+    // Update labels from slider values
+    function updateSliderLabels() {
+      valTemp.innerText = parseFloat(inputTemp.value).toFixed(1);
+      valHr.innerText = inputHr.value;
+      valSpo2.innerText = inputSpo2.value;
+      valBp.innerText = inputBp.value;
+      valEcg.innerText = parseFloat(inputEcg.value).toFixed(2);
+    }
+
+    // Interactive updates
+    [inputTemp, inputHr, inputSpo2, inputBp, inputEcg].forEach(input => {
+      input.addEventListener('input', () => {
+        updateSliderLabels();
+        updateVitalsDashboard();
+      });
+    });
+
+    // Logging window
+    function addLog(text) {
+      const timestamp = new Date().toLocaleTimeString();
+      const newEntry = document.createElement('div');
+      newEntry.innerHTML = `<span class="text-slate-600">[${timestamp}]</span> ${text}`;
+      logConsole.appendChild(newEntry);
+      logConsole.scrollTop = logConsole.scrollHeight;
+      if (logConsole.childElementCount > 30) {
+        logConsole.removeChild(logConsole.firstChild);
+      }
+    }
+
+    // Simulation Live Stream Variables
+    let simInterval = null;
+    let isStreaming = false;
+
+    function toggleStreaming() {
+      if (isStreaming) {
+        clearInterval(simInterval);
+        isStreaming = false;
+        simStatusText.innerText = "SYSTEM STANDBY";
+        simStatusText.classList.remove('text-emerald-400');
+        simStatusText.classList.add('text-slate-400');
+        btnStream.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>START TELEMETRY STREAM</span>
+        `;
+        btnStream.classList.remove('bg-red-600', 'hover:bg-red-500');
+        btnStream.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+        addLog("[SYSTEM] Telemetry live streaming stopped.");
+      } else {
+        isStreaming = true;
+        simStatusText.innerText = "STREAMING ACTIVE";
+        simStatusText.classList.remove('text-slate-400');
+        simStatusText.classList.add('text-emerald-400');
+        btnStream.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+          </svg>
+          <span>PAUSE TELEMETRY STREAM</span>
+        `;
+        btnStream.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+        btnStream.classList.add('bg-red-600', 'hover:bg-red-500');
+        addLog("[SYSTEM] Telemetry live streaming started.");
+
+        simInterval = setInterval(() => {
+          // Add minor biological jitter (floating points) to slider inputs
+          let deltaTemp = (Math.random() - 0.5) * 0.15;
+          let deltaHr = Math.floor((Math.random() - 0.5) * 4);
+          let deltaSpo2 = Math.floor(Math.random() - 0.5); // very small fluctuation
+          let deltaBp = Math.floor((Math.random() - 0.5) * 20);
+
+          inputTemp.value = (Math.max(35, Math.min(41, parseFloat(inputTemp.value) + deltaTemp))).toFixed(1);
+          inputHr.value = Math.max(40, Math.min(150, parseInt(inputHr.value) + deltaHr));
+          inputSpo2.value = Math.max(70, Math.min(100, parseInt(inputSpo2.value) + deltaSpo2));
+          inputBp.value = Math.max(900, Math.min(1600, parseInt(inputBp.value) + deltaBp));
+
+          updateSliderLabels();
+          updateVitalsDashboard(true);
+        }, 1000);
+      }
+    }
+
+    btnStream.addEventListener('click', toggleStreaming);
+
+    // Calculate prediction based on threshold anomaly scoring rules
+    function calculateAnomalyScore(temp, hr, spo2, bp) {
+      let score = 0.05; // baseline noise
+      
+      // Heart Rate thresholds: 60-100 normal
+      if (hr > 100) {
+        score += (hr - 100) * 0.008; // scale tachycardia severity
+      } else if (hr < 60) {
+        score += (60 - hr) * 0.01; // scale bradycardia severity
+      }
+
+      // Oxygen SpO2 thresholds: >= 95% normal
+      if (spo2 < 95) {
+        score += (95 - spo2) * 0.045; // high severity hypoxia
+      }
+
+      // Temp thresholds: 36.0 - 37.5 normal
+      if (temp > 37.5) {
+        score += (temp - 37.5) * 0.15; // fever score
+      } else if (temp < 36.0) {
+        score += (36.0 - temp) * 0.15; // hypothermia score
+      }
+
+      // BP thresholds: 1000 - 1250 normal
+      if (bp > 1250) {
+        score += (bp - 1250) * 0.001;
+      } else if (bp < 1000) {
+        score += (1000 - bp) * 0.0015;
+      }
+
+      // Cap at 0.99
+      return Math.min(0.99, Math.max(0.01, score));
+    }
+
+    // Main vitals status updates & alerts checker
+    function updateVitalsDashboard(isAutoLogged = false) {
+      const temp = parseFloat(inputTemp.value);
+      const hr = parseInt(inputHr.value);
+      const spo2 = parseInt(inputSpo2.value);
+      const bp = parseInt(inputBp.value);
+
+      // Set values on dashboard
+      dashTemp.innerText = temp.toFixed(1);
+      dashHr.innerText = hr;
+      dashSpo2.innerText = spo2;
+      dashBp.innerText = bp;
+
+      // Classify single card alerts
+      const tempAlert = (temp < 36.0 || temp > 37.5);
+      const hrAlert = (hr < 60 || hr > 100);
+      const spo2Alert = (spo2 < 95);
+      const bpAlert = (bp < 1000 || bp > 1250);
+
+      // Toggle alert visual styling on cards
+      toggleCardAlert(cardTemp, tempAlert);
+      toggleCardAlert(cardHr, hrAlert);
+      toggleCardAlert(cardSpo2, spo2Alert);
+      toggleCardAlert(cardBp, bpAlert);
+
+      // Perform predictive score inference
+      const prediction = calculateAnomalyScore(temp, hr, spo2, bp);
+      const isCritical = prediction >= 0.8;
+
+      // Update anomaly score gauge
+      updateGauge(prediction, isCritical);
+
+      // Check alarm trigger status
+      if (isCritical) {
+        alertBanner.classList.remove('hidden');
+        alertBanner.classList.add('flex');
+        
+        // Synthesized sounding alarm (beeps every second)
+        if (!alarmInterval) {
+          alarmInterval = setInterval(() => {
+            playBeep(2100, 0.15);
+            setTimeout(() => playBeep(2100, 0.15), 250);
+          }, 1000);
+        }
+      } else {
+        alertBanner.classList.add('hidden');
+        alertBanner.classList.remove('flex');
+        
+        if (alarmInterval) {
+          clearInterval(alarmInterval);
+          alarmInterval = null;
+        }
+      }
+
+      // Log updates
+      if (isAutoLogged) {
+        addLog(`[STREAM] Vitals sequence: Temp=${temp.toFixed(1)}°C | HR=${hr}bpm | SpO2=${spo2}% | BP=${bp} | LSTM Prob=${(prediction * 100).toFixed(0)}%`);
+      }
+    }
+
+    function toggleCardAlert(card, hasAlert) {
+      if (hasAlert) {
+        card.classList.remove('glow-card-normal');
+        card.classList.add('glow-card-alert', 'bg-red-950/20');
+      } else {
+        card.classList.remove('glow-card-alert', 'bg-red-950/20');
+        card.classList.add('glow-card-normal');
+      }
+    }
+
+    function updateGauge(score, isCritical) {
+      const percentage = (score * 100).toFixed(0);
+      probValue.innerText = `${percentage}%`;
+
+      // 251.2 is the full circumference of the circular gauge (r=40)
+      const offset = 251.2 - (251.2 * score);
+      gaugeProgress.style.strokeDashoffset = offset;
+
+      if (isCritical) {
+        gaugeProgress.setAttribute('stroke', '#ef4444');
+        probLabel.innerText = "CRITICAL";
+        probLabel.className = "text-[9px] font-bold text-red-500 uppercase tracking-widest";
+      } else if (score > 0.45) {
+        gaugeProgress.setAttribute('stroke', '#f59e0b');
+        probLabel.innerText = "STABLE";
+        probLabel.className = "text-[9px] font-bold text-amber-500 uppercase tracking-widest";
+      } else {
+        gaugeProgress.setAttribute('stroke', '#10b981');
+        probLabel.innerText = "NORMAL";
+        probLabel.className = "text-[9px] font-bold text-emerald-400 uppercase tracking-widest";
+      }
+    }
+
+    // --- HTML5 Canvas ECG Waveform Animation Logic ---
+    const canvas = document.getElementById('ecgCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Track canvas resizing
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    let sweepX = 0;
+    const sweepSpeed = 3; // Horizontal sweeping speed in px
+    let lastY = 0;
+    let isFirstPoint = true;
+
+    // ECG wave sequence trace renderer
+    function drawECG() {
+      const w = canvas.width;
+      const h = canvas.height;
+      const midY = h / 2;
+      
+      // Get parameters
+      const hr = parseInt(inputHr.value);
+      const ecgAmp = parseFloat(inputEcg.value);
+
+      // Duration of one complete cycle in frames (approx. 60 fps)
+      // T (seconds) = 60 / Heart Rate. Frames = T * 60
+      const framesPerCycle = Math.max(10, (60 / hr) * 60);
+      
+      // Calculate current frame index in the current heartbeat cycle
+      const frameInCycle = sweepX % Math.floor(framesPerCycle);
+      const phase = frameInCycle / framesPerCycle; // Normalized cycle phase 0 to 1
+
+      // Generate ECG shape based on cycle phase
+      let traceYVal = 0.5; // default center baseline
+      
+      if (phase >= 0.1 && phase < 0.18) {
+        // P-Wave (mild bump)
+        const pPhase = (phase - 0.1) / 0.08;
+        traceYVal = 0.5 - Math.sin(pPhase * Math.PI) * 0.05 * ecgAmp;
+      } 
+      else if (phase >= 0.22 && phase < 0.24) {
+        // Q-Wave (small dip)
+        const qPhase = (phase - 0.22) / 0.02;
+        traceYVal = 0.5 + qPhase * 0.08 * ecgAmp;
+      } 
+      else if (phase >= 0.24 && phase < 0.28) {
+        // R-Spike (extreme sharp upward peak)
+        const rPhase = (phase - 0.24) / 0.04;
+        if (rPhase < 0.5) {
+          // rising edge
+          const subPhase = rPhase / 0.5;
+          traceYVal = 0.5 + 0.08 * ecgAmp - subPhase * 0.48 * ecgAmp;
+        } else {
+          // falling edge
+          const subPhase = (rPhase - 0.5) / 0.5;
+          traceYVal = 0.5 - 0.40 * ecgAmp + subPhase * 0.55 * ecgAmp;
+        }
+      } 
+      else if (phase >= 0.28 && phase < 0.32) {
+        // S-Dip (deep dip below baseline)
+        const sPhase = (phase - 0.28) / 0.04;
+        traceYVal = 0.5 + 0.15 * ecgAmp - (1 - sPhase) * 0.15 * ecgAmp;
+      } 
+      else if (phase >= 0.38 && phase < 0.52) {
+        // T-Wave (medium bump)
+        const tPhase = (phase - 0.38) / 0.14;
+        traceYVal = 0.5 - Math.sin(tPhase * Math.PI) * 0.12 * ecgAmp;
+      }
+
+      // Convert trace value to Canvas pixel position
+      const nextY = traceYVal * h;
+
+      // Draw sweeping point
+      ctx.strokeStyle = '#22c55e'; // Neon Green
+      ctx.lineWidth = 2.2;
+      ctx.shadowColor = '#22c55e';
+      ctx.shadowBlur = 4;
+      
+      // Clear a small vertical slice ahead of the sweep cursor to erase old trail
+      ctx.clearRect(sweepX, 0, 15, h);
+
+      if (isFirstPoint) {
+        ctx.beginPath();
+        ctx.moveTo(sweepX, nextY);
+        isFirstPoint = false;
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(sweepX - sweepSpeed, lastY);
+        ctx.lineTo(sweepX, nextY);
+        ctx.stroke();
+      }
+
+      // Store variables
+      lastY = nextY;
+      sweepX += sweepSpeed;
+
+      // Wrap around canvas width
+      if (sweepX >= w) {
+        sweepX = 0;
+        isFirstPoint = true;
+      }
+
+      requestAnimationFrame(drawECG);
+    }
+
+    // Initialize UI and run ECG Canvas animation loop
+    updateSliderLabels();
+    updateVitalsDashboard();
+    drawECG();
+  </script>
+</body>
+</html>

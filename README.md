@@ -34,6 +34,22 @@ graph TD
 
 ---
 
+## 📸 Project Demonstration
+
+Here is a visual demonstration of the telemetry sequence data stream and the corresponding predictive monitoring workstation in action.
+
+### 1. ESP32 Sequence Telemetry (Input Stream)
+The bedside node aggregates physiological telemetry (Body Temperature, Heart Rate, SpO2, BP proxy, and ECG) into a 60-step temporal window. This structured sequence is sent to the Flask server:
+
+![ESP32 Telemetry Input Stream](assets/demo_input.png)
+
+### 2. Clinical Monitoring Dashboard (Real-Time Output)
+Once the Flask backend evaluates the sequence using the LSTM neural network, it broadcasts updates to the React client via WebSockets. The dashboard highlights abnormal thresholds, draws live ECG waveforms, and triggers alert states:
+
+![Clinical Dashboard Real-Time Output](assets/demo_dashboard.png)
+
+---
+
 ## 🔌 Bedside Node (ESP32) Hardware Schema
 
 The bedside node utilizes an **ESP32 DevKit V1** connected to four medical-grade analog/digital sensor proxies.
@@ -142,3 +158,18 @@ If you do not have the physical ESP32 hardware assembled, you can verify the bac
    ```
 3. The simulator will establish a rolling connection to the server, alternating between normal vitals and anomaly states (fever, tachycardia, hypoxia) every 30 seconds.
 4. Open your browser to the React dashboard port, and watch the vital boxes, canvas ECG waveform, and trend graphs update dynamically in real-time.
+
+---
+
+## 🎮 Interactive Simulation Playground (No Setup Required)
+
+If you want to immediately interact with the patient monitoring system without setting up Node.js, Python, or external dependencies, we have included a standalone **Interactive Simulation Playground**:
+
+1. Locate the [demo_playground.html](demo_playground.html) file in the root of this repository.
+2. Double-click or open `demo_playground.html` in any web browser (Chrome, Safari, Firefox, Edge).
+3. **Features available in the playground:**
+   - **Vitals Sliders**: Dynamically slide Temperature, Heart Rate, SpO2, and Blood Pressure to custom ranges.
+   - **Quick Presets**: Instantly load diagnostic conditions like *🟢 Normal baseline, 🟡 High Fever, 🔴 Severe Hypoxia, or 🟣 Full Anomaly*.
+   - **Live ECG Waveform**: An animating canvas-based ECG waveform trace that automatically accelerates or decelerates in response to your Heart Rate setting.
+   - **Client-Side Predictive ML Score**: A circular gauge displaying anomaly classification probability.
+   - **Sounding Alarms**: A medical-grade hardware audio beep (Web Audio API) that activates when an anomaly score crosses the threshold (with a Mute/Unmute control).
