@@ -26,9 +26,9 @@ try:
     model = load_model(model_path)
     scaler = joblib.load(scaler_path)
     HAS_ML = True
-    print("🧠 LSTM model and scaler loaded successfully.")
+    print("[INFO] LSTM model and scaler loaded successfully.")
 except Exception as e:
-    print(f"⚠️ Warning: Could not load LSTM model or scaler ({str(e)}). Running in threshold fallback mode.")
+    print(f"[WARNING] Could not load LSTM model or scaler ({str(e)}). Running in threshold fallback mode.")
 
 ALERT_THRESHOLD = 0.8  # Prediction threshold
 last_esp32_ip = None    # Auto-detected ESP32 IP
@@ -36,7 +36,7 @@ last_esp32_ip = None    # Auto-detected ESP32 IP
 
 @app.route("/")
 def index():
-    return "✅ Smart ICU Flask Server Running"
+    return "SUCCESS: Smart ICU Flask Server Running"
 
 
 @app.route("/send-data", methods=["POST"])
@@ -107,7 +107,7 @@ def receive_data():
         prediction = 0.95 if is_abnormal else 0.05
     
     alert = prediction > ALERT_THRESHOLD
-    print(f"📊 Anomaly Prediction: {prediction:.4f} | Alert: {alert} (ML Loaded: {HAS_ML})")
+    print(f"[DATA] Anomaly Prediction: {prediction:.4f} | Alert: {alert} (ML Loaded: {HAS_ML})")
 
     # Emit vitals to WebSocket clients
     socketio.emit("vitals", {
