@@ -3,7 +3,6 @@ from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 import joblib
 import numpy as np
-from keras.models import load_model
 import datetime
 import os
 import requests
@@ -17,9 +16,19 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(BASE_DIR, "model", "icu_lstm_model.h5")
 scaler_path = os.path.join(BASE_DIR, "model", "scaler.save")
 
-# Load model and scaler
-model = load_model(model_path)
-scaler = joblib.load(scaler_path)
+# Load model and scaler with fallback
+model = None
+scaler = None
+HAS_ML = False
+
+try:
+    from keras.models import load_model
+    model = load_model(model_path)
+    scaler = joblib.load(scaler_path)
+    HAS_ML = True
+    print("🧠 LSTM model and scaler loaded successfully.")
+except Exception as e:
+    print(f"⚠️ Warning: Could not load LSTM model or scaler ({str(e)}). Running in threshold fallback mode.")
 
 ALERT_THRESHOLD = 0.8  # Prediction threshold
 last_esp32_ip = None    # Auto-detected ESP32 IP
@@ -75,19 +84,30 @@ def receive_data():
     ecg = float(latest[4])
     diastolic = 80.0  # Placeholder since ESP32 sends 5 vitals
 
-    # Scale the sequence using the 5-feature scaler
-    scaled_sequence = scaler.transform(sequence_np)  # shape: (60, 5)
-
-    # Reshape for LSTM prediction: (batch_size, timesteps, features) -> (1, 60, 5)
-    input_seq = scaled_sequence.reshape(1, 60, 5)
-    
     # Run prediction
-    prediction_probs = model.predict(input_seq)
-    # prediction_probs is shape (1, 2) due to Softmax. Index 1 represents the abnormal/alert class.
-    prediction = float(prediction_probs[0][1])
+    if HAS_ML and model and scaler:
+        # Scale the sequence using the 5-feature scaler
+        scaled_sequence = scaler.transform(sequence_np)  # shape: (60, 5)
+
+        # Reshape for LSTM prediction: (batch_size, timesteps, features) -> (1, 60, 5)
+        input_seq = scaled_sequence.reshape(1, 60, 5)
+        
+        prediction_probs = model.predict(input_seq)
+        # prediction_probs is shape (1, 2) due to Softmax. Index 1 represents the abnormal/alert class.
+        prediction = float(prediction_probs[0][1])
+    else:
+        # Threshold fallback logic for anomaly detection when ML components are not loaded
+        # Temp: [36, 37.5], HR: [60, 100], SpO2: >= 95
+        is_abnormal = (
+            heart_rate < 60 or heart_rate > 100 or
+            spo2 < 95 or
+            temperature < 36.0 or temperature > 37.5 or
+            systolic > 1250
+        )
+        prediction = 0.95 if is_abnormal else 0.05
     
     alert = prediction > ALERT_THRESHOLD
-    print(f"📊 LSTM Anomaly Prediction: {prediction:.4f} | Alert: {alert}")
+    print(f"📊 Anomaly Prediction: {prediction:.4f} | Alert: {alert} (ML Loaded: {HAS_ML})")
 
     # Emit vitals to WebSocket clients
     socketio.emit("vitals", {
